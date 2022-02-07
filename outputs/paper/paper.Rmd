@@ -1,6 +1,5 @@
 ---
-title: "My title"
-subtitle: "My subtitle if needed"
+title: "Indepth Analysis of the Fire Incidents in Toronto From 2011 to 2019 and How it Relates to You"
 author: 
   - Owen Huang
 thanks: "Code and data are available at: https://github.com/Ovven999/STA304_paper1.git"
