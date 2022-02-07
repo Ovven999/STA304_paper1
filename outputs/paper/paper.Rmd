@@ -1,0 +1,163 @@
+---
+title: "My title"
+subtitle: "My subtitle if needed"
+author: 
+  - Owen Huang
+thanks: "Code and data are available at: https://github.com/Ovven999/STA304_paper1.git"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+abstract: "This is a study on the fire incidents that occurred from 2011 to 2019 as reported by the Toronto Fire Service. We found that the Toronto Fire Service has an average response time of 5 minutes, most of the fire incidents happen during afternoon times in the 10 years, and that fire incidents occur more frequently in 2018 due to extreme weather conditions. This information suggests that the Toronto Fire Service is very responsive to emergency calls and that we need to beware of potential fire hazards during times of extreme weather."
+output:
+  bookdown::pdf_document2
+toc: FALSE
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+install.packages('opendatatoronto',repos = "http://cran.us.r-project.org")
+
+library(opendatatoronto)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(hms)
+ 
+# get package
+package <- show_package("64a26694-01dc-4ec3-aa87-ad8509604f50")
+package
+ 
+# get all resources for this package
+resources <- list_package_resources("64a26694-01dc-4ec3-aa87-ad8509604f50")
+ 
+# identify datastore resources; by default, Toronto Open Data sets datastore resource format to CSV for non-geospatial and GeoJSON for geospatial resources
+datastore_resources <- filter(resources, tolower(format) %in% c('csv', 'geojson'))
+ 
+# load the first datastore resource as a sample
+data <- filter(datastore_resources, row_number()==1) %>% get_resource()
+data
+
+```
+
+# Introduction
+
+Most people who live in the apartment or condo have experienced being forced to wake up from a good night's sleep by a fire alarm that hangs right on top of your bed. Sometimes it is due to regular fire drills conducted by the property manager, and sometimes it is due to actual fire alarms going off by someone's poor cooking skills. Very rarely it is due to actual fire emergencies that require the service of the firefighters. Many people think fire hazards are far away from their lives. However, according to CGI Canada, there are approximately 24,000 cases of house fire each year in Canada, and more than one-third of the homes don't have a working smoke detector (@cgicanada). The number 1 source of ignition is from improper use of cooking equipment that ignites surrounding flammable objects such as clothing and kitchen towels. For most of the incidents people can probably put out the fire rather quickly by themselves, but in some cases, these flames will grow too large scales that will have catastrophic effects on the resident and the surrounding neighborhood. Therefore, it is important to educate oneself about the safety measures against fire hazards. These include knowing the potential ignition sources, installing and ensuring the proper function of the fire alarm, smoke detector, and sprinkler system. 
+
+It is hard to put it in perspective when reading about the fire incident happening in Canada as a whole, thus this report will analyze the data collected within the boundary of Toronto, and the fire incidents reported by the Toronto Fire Service (TFS). This report will look at all the fire incidents from 2011 to 2019 and analyze the responsiveness of the TFS department, the time of day when fire incidents happen most frequently, and the damages they cost. In the section [About The Data], I will go over the data source, methodology used during data collection, data characteristics, and the potential biases the data set has.
+
+In the [Analysis] section, we explore various aspects of the data presented by Open Data Toronto including [Fire Incident Count], [FTS Response Time], and [Estimated Dollar Loss]. During the [Fire Incident Count] analysis, we observe a strange phenomenon that while the fire incident count is consistent throughout most of the years, 2018 stands out as it was reported to have 3330 cases of fire incidents, which is almost twice as much as the rest of the years. This could be due to global warming that raised the global temperature causing malfunctions in heat-sensitive infrastructures and equipment. But a more likely reason was presented by TFS that it was due to the frequent ice storm and cold weather from January to April. and the windstorm from May to September in 2018 (@tfs). We also discovered that most of the fire incidences were reported during the afternoon time, followed by night time, and then morning time.
+
+In [FTS Response Time] section we observed that throughout the years, the response time of the TFS was consistent with an approximated median at 5 minutes for each year. This aligns with the TFS' targeted response time. This suggests that the TFS is responsive and fast with consistency. Thus, if you are living in Toronto, you can expect emergency forces to arrive at your doorsteps within 5 minutes of the alarms going off. This would minimize the casualty rate and the dollar losses.
+
+Lastly, in the [Estimated Dollar Loss] section, we observe that there is a seemingly increasing trend for the estimated dollar loss over the years, peaking in the year 2019. However, this information may not be reliable as there are missing data where the estimated dollar loss was not applicable. However, since the dollar loss in 2018 does not stand out as much as it did in the [Fire Incident Count] section, we conclude that 2018 was consisted of many fire incidents that did not grow to large scales, thus causing little to no damages to the surrounding.
+
+Going through this study, readers should have an idea of the fire incident characteristics in past years and better prepare themselves for the potential fire hazards in their daily lives. In case of a fire incident, one should not hesitate to call 911 regardless of whether or not the fire alarm goes off. listen carefully to what the emergency service says, and if they indicate that the fire is manageable, follow the instructions they provide to either evacuate immediately to safe areas outside or put out the fire according to their instructions. All in all, we can trust the Toronto Fire Service department with their response time, and that we can all stay away from fire hazards.
+
+
+# Data
+
+## About The Data
+
+The data is called fire incidents which are obtained from the open data Toronto website. Open data Toronto is an open-source database that contains data from various fields including but not limited to public safety, health, and businesses. The data fire incidents fall under the category of public safety, locations and mapping, and community service. The data provided by Open Data Toronto is similar to that of the data sent from the Toronto Fire Service (TFS) to the Ontario Fire Marshall. (@opendata)
+However, the data set includes only fire incidents as defined by Ontario Fire Marshal. Moreover, due to privacy reasons, the exact location of the fire incident was not recorded and was set to the nearest major/minor intersection. Some of the fire incidents were excluded from the report due to Section 8 of the MFIPPA, which is the Municipal Freedom of Information and Protection of Privacy Act. The data set was last updated on January 31, 2022. The data set is obtained using the R package opendatatoronto (@opendata).
+
+The data contains many variables including id, building status, area of origin, estimated dollar loss. TFS arrival time, intersection, and many more up to 34 columns of variables. However, in this report we will focus on civilian casualties, estimated dollar loss, fire under control time, method of fire control, the status of fire on arrival, TFS alarm time, TFS arrival time, and TFS firefighter casualties. Where TFS alarm time refers to the time when the emergency notification arrives at the station, on a 24-hour clock. Estimated dollar losses are losses caused by the fire incident measured in Canadian dollars. TFS arrival time refers to the time when the first emergency vehicle arrives on site. In addition to these variables, I have created 3 more columns of variables year, response, and time of day using the mutate function. The year is extracted from the TFS alarm time. Response time is the difference between the TFS arrival time and the TFS alarm time. Time of day categorizes each incident to have occurred in either morning, afternoon, or night. Morning means the incident was notified between 4 am to 12 pm, afternoon means the incident is notified between 12 pm to 8 pm, and night means the incident was notified between 8 pm to 4 am. 
+
+Amongst the variables of selection, there exist missing data in columns estimated dollar loss, fire under control time, method of fire control, and status of fire on arrival. Therefore, we may expect bias during the analysis process of these variables, as we do not know the reason for the missing information. The missing data could be due to various reasons such as hard to quantify, privacy concerns, or simply due to careless mistakes made by the firefighters or the reporter. Also, the information is input by hand, and some of the variables, such as the status of fire on arrival, are based on subjective interpretation by the recorder on-site, so there could be potential inaccuracy in the data. However, most of the errors we encountered can be considered an error that happened due to random chance. Since we have a large sample size of 17536 observations, most of these errors can be ignored, but it is important to keep in mind that these biases exist.
+
+
+## Analysis
+
+### Fire Incidents Count
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+data <- data %>% 
+  select(Civilian_Casualties, Estimated_Dollar_Loss, Fire_Under_Control_Time, Method_Of_Fire_Control, Status_of_Fire_On_Arrival, TFS_Alarm_Time, TFS_Arrival_Time, TFS_Firefighter_Casualties)
+
+data <- data %>% mutate(Year = strtrim(TFS_Alarm_Time, 4),
+                Response_Time = ifelse(as_hms(substring(TFS_Arrival_Time, 12, 19)) - as_hms(substring(TFS_Alarm_Time, 12, 19)) < 0, 
+                                       as_hms(substring(TFS_Arrival_Time, 12, 19)) - as_hms(substring(TFS_Alarm_Time, 12, 19)) + 86400,
+                                       as_hms(substring(TFS_Arrival_Time, 12, 19)) - as_hms(substring(TFS_Alarm_Time, 12, 19))),
+                Time_of_Day = ifelse(as_hms(substring(TFS_Alarm_Time, 12, 19)) >= as_hms("04:00:00") & as_hms(substring(TFS_Alarm_Time, 12, 19)) <= as_hms("12:00:00"), "morning", "night"), 
+                Time_of_Day = ifelse(as_hms(substring(TFS_Alarm_Time, 12, 19)) > as_hms("12:00:00") & as_hms(substring(TFS_Alarm_Time, 12, 19)) <= as_hms("20:00:00"), "afternoon", Time_of_Day))
+```
+
+In figure \@ref(fig:incidence), it is clear that most of the fire incidences were reported during the afternoon time, followed by night time, and then morning time. This observation is expected as most of the daily activities will be performed in the afternoon, such as cooking, playing with electronics, and smoking. The Toronto Fire Service (TFS) has identified in their 2018 annual report that the top 3 ignition sources of residential households are cooking, smoking, and electrical means (@tfs).
+Nighttime would also have high fire hazard rates as in the evening, people tend to perform more indoor activities such as barbecuing, throwing parties, or having a movie night with friends and families. In the morning time, most people are asleep or out for work, so we do not see the least number of reports of fire incidence in the morning time. 
+
+Moreover, we observe that there is a significant increase in the number of fire incidents in the year 2018, compared to the rest of the years which have a similar number of incidents. We see that the number of fire incidence reported an increase for all times during the day we can observe that number of incidence almost doubles for every time period during the day. What could have happened in Toronto in the year 2018 that caused such a high increase in fire incidence? As noted by the FTS in their 2018 annual report, the increase in emergency incidents was a result of a significantly higher number of volume days in 2018 and were mostly weather-related (@tfs). For example, the frequent ice storm and cold weather from January to April. and the windstorm from May to September. 
+
+```{r incidence, fig.cap = "Number of fire incidence each year by the time of day it was reported to the FTS. Incidence are classified as: morning (4am - 12pm), afternoon (12pm - 8 pm), and night (8pm - 4am) ", echo = FALSE, message=FALSE, warning=FALSE, fig.height=3,fig.width=5}
+data %>% 
+  filter(!is.na(Time_of_Day)) %>% 
+  ggplot(aes(x= Year, fill = Time_of_Day)) + 
+  geom_bar() + 
+  theme_classic()+
+  labs(x = "Year", y = "Number of Fire Incidence", title = "Number of Fire Incidence Each Year by Time of Day")
+
+```
+
+
+### FTS Response Time
+
+
+```{r response, fig.cap = "The average response time of the FTS from picking up the emergency call, to the arrival of the first fire truck on site, sorted by year ", echo = FALSE, message=FALSE, warning=FALSE, fig.height=3,fig.width=5}
+data %>% 
+  ggplot(aes(y = Response_Time, x= Year)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  ylim(c(10, 700))+
+  theme_classic()+
+  labs(x = "Year", y = "Response time (s)", title = "The Response Time of FTS, by Year")
+
+```
+In figure \@ref(fig:response) we graphed in a box and whiskers plot the average response time of the FTS in each year. The response time refers to the time between when they first received the emergency call, to the arrival of the first emergency vehicle on site. The horizontal bar in the middle of each box plot represents the median response time of the FTS in that year. The specific median response time can be found in table \@ref(tab:table). We can see that the median response time for each year is roughly the same with a median of approximately 300 seconds. Such result lines up with TFS' 2018 annual report which states that they target a turnout time of 1:20 minutes and a travel time of 4:00 minutes (@tfs).
+
+The turnout time refers to the time between the start of the notification process and the first responding truck is on road. The travel time refers to the time between the first responding truck is on road to when the truck arrives on site. According to the nature of medians, we see that approximately 50% of the time FTS met the targeted time, and 50% of the time they surpassed the targeted time. The underlying cause could be fire incidents that happens most frequently during extreme weather conditions that posts barrier to travel, such as ice storms and windstorm mentioned previously.
+
+### Estimated Dollar Loss
+
+```{r dollar, fig.cap = "The average response time of the FTS from picking up the emergency call, to the arrival of the first fire truck on site, sorted by year ", echo = FALSE, message=FALSE, warning=FALSE, fig.height=3,fig.width=5}
+data %>% 
+  filter(!is.na(Estimated_Dollar_Loss)) %>%
+  group_by(Year) %>%
+  summarise(Total_Estimated_Loss = sum(Estimated_Dollar_Loss)/1000) %>%
+  ggplot(aes(x = Year, y = Total_Estimated_Loss)) + 
+  geom_point() + 
+  geom_path(aes(group = Year)) +
+  theme_classic()+
+  labs(x = "Year", y = "Estimated Dollar Loss (k CAD)", title = "Total Estimated Dollar Loss (in thousands of dollars CAD), by year")
+
+```
+
+We have observed an increasing trend in the total estimated dollar loss. However, from figure \@ref(fig:incidence), if we exclude 2018 we can see a similar level of fire incidents for the rest of the years. The data presented may not be an accurate representation of the actual loss in each year as there are incidents where the estimated dollar loss was not specified. It could be due to the property being damaged could not be quantified, or could be simply hidden due to privacy concerns, so interpret these numbers with caution. What is interesting is that the estimated dollar loss in 2018 does not stand out too much compared to the rest, despite it having almost double the number of incidents. Also, we see that 2019 have the largest estimated dollar loss despite it having the least amount of observations (Table \@ref(tab:table))
+
+
+```{r table, echo = FALSE, message=FALSE, warning=FALSE, fig.pos="H"}
+table <- data %>% 
+  group_by(Year) %>% 
+  summarise('Number Of Incident' = n(),
+            'Casualty' = sum(TFS_Firefighter_Casualties) + sum(Civilian_Casualties),
+            'Estimated Dollar Loss (k CAD)' = sum(Estimated_Dollar_Loss, na.rm = TRUE)/1000, 
+            'Median Response Time (s)' = median(Response_Time))
+
+t <- knitr::kable(table, caption = "Data Sorted by Year") %>% kable_styling(latex_options = "hold_position")
+t
+
+num_of_na <- data %>% filter(is.na(Estimated_Dollar_Loss)) %>% summarise(x = n())
+```
+\newpage
+Table \@ref(tab:table) shows a summary of the graphs presented above. Casualty is calculated from the sum of civilian casualties and TFS firefighter casualties. Note that one casualty can mean either an injured or dead individual. We see that although 2018 has the highest number of fire incidents, the casualties it reported were not the highest. The median response time is consistent at around 5 minutes. Note that the result presented in the estimated dollar loss column may post biases as there are `r num_of_na$x` numbers of missing data. It could be due to the property being damaged could not be quantified, or could be simply hidden due to privacy concerns, so interpret these numbers with caution.
+
+
+
+
+
+\newpage
+
+\newpage
+
+
+# References
+
+
